@@ -1,17 +1,17 @@
-from keep_alive import keep_alive
-keep_alive()  # Запускаем веб-сервер
-
 import os
 import asyncio
-from telegram.ext import Application, CommandHandler
-from telegram import Bot
-from datetime import datetime
+from telegram import Bot, Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 import aiohttp
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
+from keep_alive import keep_alive
+import logging
 
-# Загружаем переменные окружения
-load_dotenv()
+# Настройка логирования
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
 # Получаем токены из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -45,59 +45,52 @@ async def get_random_joke():
         print(f"Ошибка при получении анекдота: {str(e)}")
         return None
 
-async def send_joke_command(update, context):
+async def send_joke_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         joke = await get_random_joke()
         if joke:
-            current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
-            message = f"Анекдот ({current_time}):\n\n{joke}"
-            await update.message.reply_text(message)
+            await update.message.reply_text(f"Анекдот:\n\n{joke}")
         else:
             await update.message.reply_text("Извините, не удалось получить анекдот.")
     except Exception as e:
         print(f"Ошибка при отправке анекдота: {str(e)}")
         await update.message.reply_text("Произошла ошибка при отправке анекдота.")
 
-async def scheduled_joke():
+async def send_channel_joke():
     try:
         async with Bot(token=TELEGRAM_BOT_TOKEN) as bot:
             joke = await get_random_joke()
             if joke:
-                current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
-                message = f"Анекдот дня ({current_time}):\n\n{joke}"
-                await bot.send_message(chat_id=CHANNEL_ID, text=message)
-                print("Сообщение успешно отправлено")
+                await bot.send_message(chat_id=CHANNEL_ID, text=f"Анекдот дня:\n\n{joke}")
+                print("Анекдот отправлен в канал")
             else:
-                print("Нет анекдота для отправки")
+                print("Не удалось получить анекдот для канала")
     except Exception as e:
-        print(f"Ошибка при отправке сообщения: {str(e)}")
+        print(f"Ошибка при отправке в канал: {str(e)}")
 
 async def main():
-    # Создаем приложение
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    
-    # Добавляем обработчик команды /joke
-    application.add_handler(CommandHandler("joke", send_joke_command))
-    
-    # Запускаем бота
-    await application.initialize()
-    await application.start()
-    
-    # Запускаем периодическую отправку анекдотов
-    while True:
-        try:
-            await scheduled_joke()
-            # Ждем 24 часа
-            await asyncio.sleep(24 * 60 * 60)
-        except Exception as e:
-            print(f"Ошибка в главном цикле: {str(e)}")
-            await asyncio.sleep(300)
-
-if __name__ == "__main__":
-    print("Бот запущен")
     try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Бот остановлен")
+        # Запускаем веб-сервер для поддержания работы бота
+        keep_alive()
+        
+        # Создаем приложение
+        app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        
+        # Добавляем обработчик команды /joke
+        app.add_handler(CommandHandler("joke", send_joke_command))
+        
+        # Запускаем бота
+        await app.initialize()
+        await app.start()
+        
+        # Запускаем периодическую отправку анекдотов
+        while True:
+            await send_channel_joke()
+            await asyncio.sleep(24 * 60 * 60)  # Ждем 24 часа
+            
     except Exception as e:
         print(f"Критическая ошибка: {str(e)}")
+        
+if __name__ == "__main__":
+    print("Бот запущен")
+    asyncio.run(main())
