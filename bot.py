@@ -4,13 +4,20 @@ from telegram import Bot
 from datetime import datetime
 import aiohttp
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения из .env файла
+load_dotenv()
 
 # Получаем переменные окружения
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')
 
+# Проверяем наличие переменных окружения
 if not TELEGRAM_BOT_TOKEN or not CHANNEL_ID:
-    raise ValueError("Необходимо установить переменные окружения TELEGRAM_BOT_TOKEN и CHANNEL_ID")
+    print("Пожалуйста, установите переменные окружения в разделе 'Secrets'")
+    print("Добавьте TELEGRAM_BOT_TOKEN и CHANNEL_ID")
+    exit(1)
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -68,4 +75,9 @@ async def main():
 
 if __name__ == "__main__":
     print("Скрипт запущен")
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Бот остановлен")
+    except Exception as e:
+        print(f"Критическая ошибка: {str(e)}")
